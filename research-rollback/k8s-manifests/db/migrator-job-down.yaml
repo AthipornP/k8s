@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrator-down
+  namespace: test-rollback
+  labels:
+    job-type: migration
+spec:
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrator
+        image: registry.local/myapp:REPLACE_TAG
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Starting database migration: downgrade 20251028"
+          echo "Connecting to database..."
+          
+          # Simulate database downgrade (rollback)
+          if [ -z "$DB_DSN" ]; then
+            echo "ERROR: DB_DSN not set"
+            exit 1
+          fi
+          
+          echo "DB_DSN: $DB_DSN"
+          echo "Running rollback script: downgrade 20251028"
+          echo "⚠️  WARNING: Only reversible migrations are supported"
+          echo "✓ Rollback completed successfully"
+          exit 0
+        envFrom:
+        - secretRef:
+            name: myapp-secret-v1

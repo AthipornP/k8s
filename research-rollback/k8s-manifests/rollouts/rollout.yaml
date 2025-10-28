@@ -1,0 +1,71 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: myapp
+  namespace: test-rollback
+spec:
+  replicas: 6
+  strategy:
+    canary:
+      steps:
+      - setWeight: 10
+      - pause:
+          duration: 2m
+      - analysis:
+          templates:
+          - templateName: error-rate-check
+      - setWeight: 50
+      - pause:
+          duration: 5m
+      - analysis:
+          templates:
+          - templateName: error-rate-check
+      - setWeight: 100
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: app
+        image: registry.local/myapp:REPLACE_TAG
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        envFrom:
+        - configMapRef:
+            name: myapp-config-v1
+        - secretRef:
+            name: myapp-secret-v1
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 2
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10"]

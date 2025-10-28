@@ -1,0 +1,63 @@
+---
+# Service for stable traffic (current stable version)
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-stable
+  namespace: test-rollback
+  labels:
+    app: myapp
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: myapp
+
+---
+# Service for canary traffic (new version being tested)
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-canary
+  namespace: test-rollback
+  labels:
+    app: myapp
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: myapp
+
+---
+# Ingress for routing traffic
+# Note: This is a simple example. For production, consider using:
+# - Service mesh (Istio, Linkerd) for advanced traffic splitting
+# - Ingress controller with canary support
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp
+  namespace: test-rollback
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: myapp-stable
+            port:
+              number: 80

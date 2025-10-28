@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-test
+  namespace: test-rollback
+spec:
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: curl
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Running smoke tests..."
+          RETRIES=3
+          DELAY=2
+          
+          for i in $(seq 1 $RETRIES); do
+            echo "Attempt $i of $RETRIES: Testing /healthz endpoint"
+            if curl -f -s http://myapp.test-rollback.svc.cluster.local/healthz; then
+              echo "✓ Health check passed"
+              exit 0
+            fi
+            if [ $i -lt $RETRIES ]; then
+              echo "  Waiting ${DELAY}s before retry..."
+              sleep $DELAY
+            fi
+          done
+          
+          echo "✗ All health check attempts failed"
+          exit 1

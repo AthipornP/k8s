@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: error-rate-check
+  namespace: test-rollback
+spec:
+  metrics:
+  - name: http-5xx-rate
+    interval: 30s
+    count: 6
+    successCondition: result < 0.01
+    failureCondition: result >= 0.05
+    failureLimit: 2
+    provider:
+      prometheus:
+        address: http://prometheus:9090
+        query: |
+          (
+            sum(rate(http_requests_total{app="myapp",status=~"5.."}[1m]))
+            /
+            sum(rate(http_requests_total{app="myapp"}[1m]))
+          ) or on() vector(0)
+  - name: error-rate
+    interval: 30s
+    count: 6
+    successCondition: result < 0.1
+    failureCondition: result >= 0.2
+    provider:
+      prometheus:
+        address: http://prometheus:9090
+        query: |
+          (
+            sum(rate(http_requests_total{app="myapp",status=~"4.."}[1m]))
+            /
+            sum(rate(http_requests_total{app="myapp"}[1m]))
+          ) or on() vector(0)

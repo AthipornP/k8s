@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrator-up
+  namespace: test-rollback
+  labels:
+    job-type: migration
+spec:
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrator
+        image: registry.local/myapp:REPLACE_TAG
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Starting database migration: upgrade 20251028"
+          echo "Connecting to database..."
+          
+          # Simulate database upgrade
+          if [ -z "$DB_DSN" ]; then
+            echo "ERROR: DB_DSN not set"
+            exit 1
+          fi
+          
+          echo "DB_DSN: $DB_DSN"
+          echo "Running migration script: upgrade 20251028"
+          echo "✓ Migration completed successfully"
+          exit 0
+        envFrom:
+        - secretRef:
+            name: myapp-secret-v1

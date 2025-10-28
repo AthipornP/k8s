@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp-postsync-hook
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/your-repo
+    targetRevision: HEAD
+    path: k8s-manifests/rollouts
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: test-rollback
+  syncPolicy:
+    syncOptions:
+    - RespectIgnoreDifferences=true
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postsync-smoke-test
+  namespace: test-rollback
+spec:
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: curl
+        image: curlimages/curl:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Post-sync hook: Running smoke tests"
+          echo "Timestamp: $(date -Iseconds)"
+          
+          RETRIES=5
+          DELAY=3
+          
+          for i in $(seq 1 $RETRIES); do
+            echo "Attempt $i of $RETRIES: Testing application health"
+            if curl -f -s http://myapp.test-rollback.svc.cluster.local/healthz; then
+              echo "✓ Post-sync smoke tests passed"
+              exit 0
+            fi
+            if [ $i -lt $RETRIES ]; then
+              echo "  Waiting ${DELAY}s before retry..."
+              sleep $DELAY
+            fi
+          done
+          
+          echo "✗ Post-sync smoke tests failed"
+          exit 1

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config-v1
+  namespace: test-rollback
+data:
+  FEATURE_NEW: "false"
+  BOOT_DELAY: "5"

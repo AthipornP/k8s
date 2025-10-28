@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp-presync-hook
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/your-repo
+    targetRevision: HEAD
+    path: k8s-manifests/rollouts
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: test-rollback
+  syncPolicy:
+    syncOptions:
+    - RespectIgnoreDifferences=true
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: presync-backup
+  namespace: test-rollback
+spec:
+  backoffLimit: 1
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: backup
+        image: curlimages/curl:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Pre-sync hook: Starting backup procedure"
+          echo "Timestamp: $(date -Iseconds)"
+          echo "Backing up current deployment state..."
+          echo "✓ Backup completed successfully"
+          echo "Ready for new deployment"
